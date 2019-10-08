@@ -1,5 +1,13 @@
+import _raf from 'raf';
 import { MentionsProps } from './Mentions';
 import { OptionProps } from './Option';
+
+interface RafMap {
+  [id: number]: number;
+}
+
+let id = 0;
+const ids: RafMap = {};
 
 export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 
@@ -140,3 +148,34 @@ export function filterOption(input: string, { value = '' }: OptionProps): boolea
   const lowerCase = input.toLowerCase();
   return value.toLowerCase().indexOf(lowerCase) !== -1;
 }
+
+// Support call raf with delay specified frame
+export function raf(callback: () => void, delayFrames: number = 1): number {
+  id += 1;
+  const myId: number = id;
+  let restFrames: number = delayFrames;
+
+  function internalCallback() {
+    restFrames -= 1;
+
+    if (restFrames <= 0) {
+      callback();
+      delete ids[myId];
+    } else {
+      ids[myId] = _raf(internalCallback);
+    }
+  }
+
+  ids[myId] = _raf(internalCallback);
+
+  return myId;
+}
+
+raf.cancel = function cancel(pid?: number) {
+  if (pid === undefined) return;
+
+  _raf.cancel(ids[pid]);
+  delete ids[pid];
+};
+
+raf.ids = ids;

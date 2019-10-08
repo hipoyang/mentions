@@ -1,6 +1,6 @@
 {
-  "name": "rc-mentions",
-  "version": "0.4.0",
+  "name": "hy-mentions",
+  "version": "0.1.0",
   "description": "React Mentions",
   "keywords": [
     "react",
@@ -55,7 +55,9 @@
   "dependencies": {
     "@ant-design/create-react-context": "^0.2.4",
     "classnames": "^2.2.6",
+    "raf": "^3.4.1",
     "rc-menu": "^7.4.22",
+    "rc-resize-observer": "^0.1.0",
     "rc-trigger": "^2.6.2",
     "rc-util": "^4.6.0",
     "react-lifecycles-compat": "^3.0.4"

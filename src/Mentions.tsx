@@ -3,6 +3,7 @@ import toArray from 'rc-util/lib/Children/toArray';
 import KeyCode from 'rc-util/lib/KeyCode';
 import * as React from 'react';
 import { polyfill } from 'react-lifecycles-compat';
+import ResizeObserver from 'rc-resize-observer';
 import KeywordTrigger from './KeywordTrigger';
 import { MentionsContextProvider } from './MentionsContext';
 import Option, { OptionProps } from './Option';
@@ -15,12 +16,19 @@ import {
   replaceWithMeasure,
   setInputSelection,
   validateSearch as defaultValidateSearch,
+  raf,
 } from './util';
+import calculateNodeHeight from './calculateNodeHeight';
 
 type BaseTextareaAttrs = Omit<
   React.TextareaHTMLAttributes<HTMLTextAreaElement>,
   'prefix' | 'onChange' | 'onSelect'
 >;
+
+export interface AutoSizeType {
+  minRows?: number;
+  maxRows?: number;
+}
 
 export type Placement = 'top' | 'bottom';
 
@@ -44,6 +52,7 @@ export interface MentionsProps extends BaseTextareaAttrs {
   onFocus?: React.FocusEventHandler<HTMLTextAreaElement>;
   onBlur?: React.FocusEventHandler<HTMLTextAreaElement>;
   getPopupContainer?: () => HTMLElement;
+  autosize?: boolean | AutoSizeType;
 }
 interface MentionsState {
   value: string;
@@ -53,12 +62,20 @@ interface MentionsState {
   measureLocation: number;
   activeIndex: number;
   isFocus: boolean;
+  textareaStyles?: React.CSSProperties;
+  /** We need add process style to disable scroll first
+   * and then add back to avoid unexpected scrollbar  */
+  resizing?: boolean;
 }
 class Mentions extends React.Component<MentionsProps, MentionsState> {
+  public nextFrameActionId?: number;
+
+  public resizeFrameId?: number;
+
   public static Option = Option;
 
   public static defaultProps = {
-    prefixCls: 'rc-mentions',
+    prefixCls: 'hy-mentions',
     prefix: '@',
     split: ' ',
     validateSearch: defaultValidateSearch,
@@ -93,6 +110,8 @@ class Mentions extends React.Component<MentionsProps, MentionsState> {
       measurePrefix: '',
       activeIndex: 0,
       isFocus: false,
+      textareaStyles: {},
+      resizing: false,
     };
   }
 
@@ -118,6 +137,7 @@ class Mentions extends React.Component<MentionsProps, MentionsState> {
 
   public onChange: React.ChangeEventHandler<HTMLTextAreaElement> = ({ target: { value } }) => {
     this.triggerChange(value);
+    this.resizeTextarea();
   };
 
   // Check if hit the measure keyword
@@ -321,8 +341,36 @@ class Mentions extends React.Component<MentionsProps, MentionsState> {
     this.textarea.blur();
   }
 
+  resizeOnNextFrame = () => {
+    raf.cancel(this.nextFrameActionId);
+    this.nextFrameActionId = raf(this.resizeTextarea);
+  };
+
+  resizeTextarea = () => {
+    const { autosize } = this.props;
+    if (!autosize || !this.textarea) {
+      return;
+    }
+    const { minRows, maxRows } = autosize as AutoSizeType;
+    const textareaStyles = calculateNodeHeight(this.textarea, false, minRows, maxRows);
+    this.setState({ textareaStyles, resizing: true }, () => {
+      raf.cancel(this.resizeFrameId);
+      this.resizeFrameId = raf(() => {
+        this.setState({ resizing: false });
+      });
+    });
+  };
+
   public render() {
-    const { value, measureLocation, measurePrefix, measuring, activeIndex } = this.state;
+    const {
+      value,
+      measureLocation,
+      measurePrefix,
+      measuring,
+      activeIndex,
+      textareaStyles,
+      resizing,
+    } = this.state;
     const {
       prefixCls,
       placement,
@@ -352,17 +400,23 @@ class Mentions extends React.Component<MentionsProps, MentionsState> {
 
     return (
       <div className={classNames(prefixCls, className)} style={style}>
-        <textarea
-          autoFocus={autoFocus}
-          ref={this.setTextAreaRef}
-          value={value}
-          {...inputProps}
-          onChange={this.onChange}
-          onKeyDown={this.onKeyDown}
-          onKeyUp={this.onKeyUp}
-          onFocus={this.onInputFocus}
-          onBlur={this.onInputBlur}
-        />
+        <ResizeObserver onResize={this.resizeOnNextFrame} disabled={false}>
+          <textarea
+            autoFocus={autoFocus}
+            ref={this.setTextAreaRef}
+            value={value}
+            {...inputProps}
+            style={{
+              ...textareaStyles,
+              ...(resizing ? { overflow: 'hidden' } : null),
+            }}
+            onChange={this.onChange}
+            onKeyDown={this.onKeyDown}
+            onKeyUp={this.onKeyUp}
+            onFocus={this.onInputFocus}
+            onBlur={this.onInputBlur}
+          />
+        </ResizeObserver>
         {measuring && (
           <div ref={this.setMeasureRef} className={`${prefixCls}-measure`}>
             {value.slice(0, measureLocation)}

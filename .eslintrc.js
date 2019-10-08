@@ -5,5 +5,6 @@ module.exports = {
   rules: {
     ...base.rules,
     'jsx-a11y/no-autofocus': 0,
+    'react/sort-comp': 0,
   },
 };
