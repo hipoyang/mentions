@@ -66,6 +66,7 @@ React.render(<Demo />, container);
 | name     | description    | type     | default      |
 |----------|----------------|----------|--------------|
 | autoFocus | Auto get focus when component mounted | boolean | `false` |
+| autoSize | auto extend rows | `boolean` or `AutoSizeType` | `false` |
 | defaultValue | Default value | string | - |
 | filterOption | Customize filter option logic | false \| (input: string, option: OptionProps) => boolean | - |
 | notFoundContent | Set mentions content when not match | ReactNode | 'Not Found' |
